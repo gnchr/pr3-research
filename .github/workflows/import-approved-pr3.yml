@@ -1,0 +1,48 @@
+name: Import approved PR3 documents
+on:
+  push:
+    paths:
+      - 'PR3_GitHub_current_approved_stages_1-5.zip'
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Verify and unpack approved files
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="PR3_GitHub_current_approved_stages_1-5.zip"
+          test -f "$archive"
+          unzip -Z1 "$archive" > /tmp/pr3-archive-files.txt
+          cat > /tmp/pr3-expected-files.txt <<'EOF'
+          PR3_execution_plan_current.md
+          PR3_artifacts/stage_01/publications_registry.md
+          PR3_artifacts/stage_01/A7_verification_and_alternatives.md
+          PR3_artifacts/stage_02/stage_02_report.md
+          PR3_artifacts/stage_02/articles_analysis.csv
+          PR3_artifacts/stage_02/literature_synthesis.md
+          PR3_artifacts/stage_02/articles_analysis_notes.md
+          PR3_artifacts/stage_03/research_design.md
+          PR3_artifacts/stage_04/reproducibility_protocol.md
+          PR3_artifacts/stage_04/verify_contract.py
+          PR3_artifacts/stage_04/fixtures/cpu_input.bin
+          PR3_artifacts/stage_04/fixtures/SHA256SUMS
+          PR3_artifacts/stage_05/stand_specification.md
+          PR3_artifacts/stage_05/stand_architecture.mmd
+          EOF
+          diff -u <(sort /tmp/pr3-expected-files.txt) <(sort /tmp/pr3-archive-files.txt)
+          unzip -o -q "$archive"
+          test "$(wc -c < PR3_artifacts/stage_04/fixtures/cpu_input.bin)" -eq 32
+          (cd PR3_artifacts/stage_04/fixtures && sha256sum -c SHA256SUMS)
+          rm "$archive"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Import approved PR3 stages 1–5 and current plan"
+          git push
