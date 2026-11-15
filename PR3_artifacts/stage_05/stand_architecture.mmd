@@ -1,0 +1,70 @@
+flowchart LR
+    %% PR3, этап 5; версия диаграммы 0.1.2, 15.11.2026, согласованная синхронизация.
+    %% Исправление: на стрелках SUT -> эмулятор явно указан GET /delay.
+    %% CPU-сценарий GET /cpu выполняется только внутри SUT, без эмулятора.
+    %% Линии от k6 к четырём SUT обозначают АЛЬТЕРНАТИВНЫЕ прогоны.
+    %% В одном измерительном прогоне работает ровно один SUT.
+
+    subgraph control["Управление и источник нагрузки (выделенные ресурсы)"]
+        Orchestrator["Оркестратор эксперимента<br/>Compose + сценарии запуска"]
+        K6["k6 v1.8.2<br/>open-model HTTP-нагрузка"]
+        Emulator["HTTP-эмулятор Go<br/>GET /delay<br/>ожидание таймером"]
+    end
+
+    subgraph target["SUT: выбирается строго ОДНА реализация на прогон"]
+        JP["Java + Spring MVC<br/>platform threads"]
+        JV["Java + Spring MVC<br/>virtual threads"]
+        KC["Kotlin + Spring MVC<br/>suspend + WebClient.awaitBody"]
+        GS["Go net/http<br/>goroutines"]
+    end
+
+    subgraph metrics["Измерения и диагностика"]
+        AppMetrics["JVM Micrometer / Go runtime metrics<br/>/actuator/prometheus или /metrics"]
+        CAdvisor["cAdvisor<br/>CPU, память, cgroup, сеть"]
+        Prometheus["Prometheus<br/>временные ряды"]
+        Profiler["JFR / GC logs или Go pprof<br/>только отдельные диагностические серии"]
+    end
+
+    subgraph outputs["Сохранение и последующий анализ"]
+        Raw["results/raw/<run_id><br/>k6 JSON, экспорт Prometheus, логи"]
+        Manifest["results/manifests/<run_id>.json<br/>версии, параметры, seed, ресурсы"]
+        Analyse["Python: 2 статуса, C и rho,<br/>p95_success, интервалы, графики"]
+        Report["results/processed: runs, capacity, comparisons<br/>отчёт ПР3"]
+    end
+
+    Orchestrator -. "запускает по очереди" .-> JP
+    Orchestrator -.-> JV
+    Orchestrator -.-> KC
+    Orchestrator -.-> GS
+    Orchestrator -. "конфигурирует" .-> K6
+    Orchestrator -. "манифест прогона" .-> Manifest
+
+    K6 -->|"GET /io или GET /cpu (альтернативно)"| JP
+    K6 -->|"GET /io или GET /cpu (альтернативно)"| JV
+    K6 -->|"GET /io или GET /cpu (альтернативно)"| KC
+    K6 -->|"GET /io или GET /cpu (альтернативно)"| GS
+
+    JP -->|"GET /delay — из GET /io"| Emulator
+    JV -->|"GET /delay — из GET /io"| Emulator
+    KC -->|"GET /delay — suspend HTTP"| Emulator
+    GS -->|"GET /delay — из GET /io"| Emulator
+
+    JP -. "метрики" .-> AppMetrics
+    JV -. "метрики" .-> AppMetrics
+    KC -. "метрики" .-> AppMetrics
+    GS -. "метрики" .-> AppMetrics
+    AppMetrics -->|"scrape"| Prometheus
+    Emulator -->|"/metrics: latency, in-flight, errors"| Prometheus
+    K6 -. "CPU/RSS контейнера" .-> CAdvisor
+    Emulator -. "CPU/RSS контейнера" .-> CAdvisor
+    JP -. "ресурсы контейнера" .-> CAdvisor
+    JV -. "ресурсы контейнера" .-> CAdvisor
+    KC -. "ресурсы контейнера" .-> CAdvisor
+    GS -. "ресурсы контейнера" .-> CAdvisor
+    CAdvisor -->|"scrape"| Prometheus
+    Prometheus -->|"экспорт окна измерения"| Raw
+    Profiler -. "диагностические файлы" .-> Raw
+    K6 -->|"raw, ошибки и p50/p95/p99_success"| Raw
+    Raw --> Analyse
+    Manifest --> Analyse
+    Analyse --> Report
