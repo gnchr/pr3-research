@@ -1,8 +1,8 @@
-name: One-time unpack PR3 files
+name: One-time unpack approved PR3 files
 on:
   push:
     paths:
-      - 'PR3_bundle.tar.xz'
+      - '.transfer/complete'
 permissions:
   contents: write
 jobs:
@@ -10,14 +10,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Expand documents
+      - name: Expand and verify approved documents
+        shell: bash
         run: |
           set -euo pipefail
-          tar -xJf PR3_bundle.tar.xz
-          rm PR3_bundle.tar.xz
+          cat .transfer/part* | base64 -d > /tmp/pr3.tar.xz
+          echo "09e9d0d4e404a1adfd1408fc2f227e0e250d5018cf63c2cc490816e203d42cd8  /tmp/pr3.tar.xz" | sha256sum -c -
+          tar -xJf /tmp/pr3.tar.xz
+          rm -rf .transfer
           rm .github/workflows/unpack.yml
+          rmdir .github/workflows 2>/dev/null || true
+          rmdir .github 2>/dev/null || true
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "Add approved PR3 stages"
+          git commit -m "Publish approved PR3 stages 1–5 and current plan"
           git push
