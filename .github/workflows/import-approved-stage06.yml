@@ -1,0 +1,37 @@
+name: Import approved PR3 stage 6 and stage 3 synchronization
+on:
+  push:
+    paths:
+      - 'PR3_stage_06_approved_and_stage_03_sync_2026-11-16.zip'
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate and import approved documents
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="PR3_stage_06_approved_and_stage_03_sync_2026-11-16.zip"
+          test -f "$archive"
+          unzip -Z1 "$archive" | sort > /tmp/actual.txt
+          cat > /tmp/expected.txt <<'EOF'
+          PR3_artifacts/stage_03/research_design.md
+          PR3_artifacts/stage_06/experiment_plan.md
+          PR3_artifacts/stage_06/validity_threats.md
+          PR3_execution_plan_current.md
+          EOF
+          diff -u /tmp/expected.txt /tmp/actual.txt
+          unzip -oq "$archive"
+          printf '%s  %s\n' '67b5ad056fdc53a58454ddae2fab9c3e82839cff2aafb224163fddd526ae5c92' 'PR3_artifacts/stage_03/research_design.md' \
+            'cbd66eea842ca8c5e56ae07978a3384f1bc8f96b44d5bc17c35fa612e5437b9d' 'PR3_artifacts/stage_06/experiment_plan.md' \
+            '94515b13412780aed89216c42d8432386272d78717547fc4082229fa60fb93e6' 'PR3_artifacts/stage_06/validity_threats.md' \
+            '6d824526857364827eef2750eee372c3dd64e37cd4963a4f814e07e68512f387' 'PR3_execution_plan_current.md' | sha256sum -c -
+          rm "$archive"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Approve stage 6 and synchronize stage 3 research questions"
+          git push
