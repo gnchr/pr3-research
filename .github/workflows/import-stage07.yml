@@ -18,7 +18,7 @@ jobs:
           parts=(.import-stage07/part*.b64)
           test "${#parts[@]}" -eq 6
           cat "${parts[@]}" | tr -d '\n\r' | base64 -d | xz -dc > REPORT.md
-          printf '%s  %s\n' '146c93bf1436a0f2232332fe273d1983a6e40a74db172782806366ecd2b34477' REPORT.md | sha256sum -c -
+          printf '%s  %s\n' 'dc679c2fdc02fb874429831674f95975f20404bf9dd85d7773ddbc4bffc534e2' REPORT.md | sha256sum -c -
           grep -q 'Практическая работа № 3' REPORT.md
           grep -q 'Приложение А' REPORT.md
           test "$(grep -c '^### A[1-7]\.' REPORT.md)" -eq 7
