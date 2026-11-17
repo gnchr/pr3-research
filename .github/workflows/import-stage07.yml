@@ -1,0 +1,33 @@
+name: One-time import verified PR3 final report
+on:
+  push:
+    paths:
+      - '.import-stage07/READY'
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify and expand Markdown report
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          parts=(.import-stage07/part*.b64)
+          test "${#parts[@]}" -eq 6
+          cat "${parts[@]}" | tr -d '\n\r' | base64 -d | xz -dc > REPORT.md
+          printf '%s  %s\n' '146c93bf1436a0f2232332fe273d1983a6e40a74db172782806366ecd2b34477' REPORT.md | sha256sum -c -
+          grep -q 'Практическая работа № 3' REPORT.md
+          grep -q 'Приложение А' REPORT.md
+          test "$(grep -c '^### A[1-7]\.' REPORT.md)" -eq 7
+          rm -rf .import-stage07
+          rm .github/workflows/import-stage07.yml
+          rmdir .github/workflows 2>/dev/null || true
+          rmdir .github 2>/dev/null || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Publish PR3 final report (Markdown) based on approved stages 1-6"
+          git push
